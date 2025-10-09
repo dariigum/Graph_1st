@@ -1,30 +1,303 @@
-# OpenGL and GLUT Animation Project
-
-Description:
-This project demonstrates a simple animation using OpenGL and GLUT. It features a main window with a rotating square and random circles, as well as a subwindow with an ellipse and a menu to change the background color.
-
----
+# OpenGL and GLFW: Drawing Shapes with Shaders
 
 ## Features
-- Rotating square in the main window.
-- Adding circles with a mouse click.
-- "Breathing" animation for circles (size changes).
-- Subwindow with an ellipse and a menu to change the background color.
-
----
-
-## Requirements
-- OpenGL and GLUT.
-- A C++ compiler supporting C++11 or later.
+- Drawing a blue square using a vertex buffer and shaders.
+- Drawing a red triangle using a vertex buffer and shaders.
+- Drawing a circle and ellipse using a utility function.
+- Drawing multiple squares with different sizes and colors.
+- Drawing a triangle with different colored vertices.
 
 ---
 
 ## Installation and Setup
 
 ### 1. Install Dependencies
+
 #### On Windows:
-- Install **freeglut** using **vcpkg**:
-  ```powershell
-  .\vcpkg install freeglut\:x64-windows
-  .\vcpkg integrate install
+- Install GLFW and GLAD:
+  - Download GLFW from [glfw.org](https://www.glfw.org/).
+  - Use vcpkg to install GLFW:
+    ```powershell
+    .\vcpkg install glfw3\:x64-windows
+    .\vcpkg integrate install
+    ```
+  - Download GLAD from [glad.dav1d.de](https://glad.dav1d.de/).
+
+Initialization: GLFW and GLAD are initialized, and a window is created.
+Shader Compilation: Vertex and fragment shaders are compiled and linked into a shader program.
+Vertex Data and Buffers: Vertex data for shapes is defined, and VAOs and VBOs are created.
+Utility Functions: Functions to create shapes (circle, ellipse, square, triangle) are defined.
+Rendering Loop: The main loop clears the screen, uses the shader program, and draws the shapes.
+Cleanup: Resources are cleaned up, and the program exits gracefully.
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <iostream>
+
+// Sets up the GLFW library for window creation and OpenGL context management
+if (!glfwInit()) {
+    std::cerr << "Error: GLFW failed to initialize!\n";
+    return -1;
+}
+
+// Set OpenGL version to 3.3
+glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+// window with a specified size and title.
+GLFWwindow* window = glfwCreateWindow(500, 500, "OpenGL Window", NULL, NULL);
+if (!window) {
+    std::cerr << "Error: Failed to create window!\n";
+    glfwTerminate();
+    return -1;
+}
+glfwMakeContextCurrent(window);
+
+// Loads OpenGL functions.
+if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    std::cerr << "Error: Failed to initialize GLAD!\n";
+    return -1;
+}
+
+
+// Vertex shader source code. The vertex shader processes vertex positions and colors. It takes the vertex position and color as input and passes the color to the fragment shader.
+
+
+const char* vertexShaderSource = R"(
+#version 330 core
+layout (location = 0) in vec2 vPosition;
+layout (location = 1) in vec3 vColor;
+out vec3 passColor;
+void main() {
+    gl_Position = vec4(vPosition, 0.0, 1.0);
+    passColor = vColor;
+}
+)";
+
+// Fragment shader source code
+const char* fragmentShaderSource = R"(
+#version 330 core
+in vec3 passColor;
+out vec4 FragColor;
+void main() {
+    FragColor = vec4(passColor, 1.0);
+}
+)";
+
+// Compile shaders
+unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+glCompileShader(vertexShader);
+
+unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+glCompileShader(fragmentShader);
+
+// Create shader program
+unsigned int shaderProgram = glCreateProgram();
+glAttachShader(shaderProgram, vertexShader);
+glAttachShader(shaderProgram, fragmentShader);
+glLinkProgram(shaderProgram);
+
+// Delete shaders
+glDeleteShader(vertexShader);
+glDeleteShader(fragmentShader);
+
+
+// Vertex data for a blue square
+float vertices[] = {
+    // x,    y,     r, g, b
+    -0.6f,  0.6f,  0, 0, 1,   // top-left
+    -0.6f, -0.6f,  0, 0, 1,   // bottom-left
+     0.6f,  0.6f,  0, 0, 1,   // top-right
+     0.6f, -0.6f,  0, 0, 1    // bottom-right
+};
+
+// Create VAO and VBO
+unsigned int VAO, VBO;
+glGenVertexArrays(1, &VAO);
+glGenBuffers(1, &VBO);
+glBindVertexArray(VAO);
+glBindBuffer(GL_ARRAY_BUFFER, VBO);
+glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+// Set vertex attributes
+glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+glEnableVertexAttribArray(0);
+
+glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+glEnableVertexAttribArray(1);
+
+
+// Main rendering loop
+while (!glfwWindowShouldClose(window)) {
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(shaderProgram);
+    glBindVertexArray(VAO);
+
+    // Draw the square
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+}
+
+
+struct Shape {
+    unsigned int VAO;
+    unsigned int VBO;
+    int vertexCount;
+    GLenum mode;
+};
+
+Shape makeShape(const std::vector<float>& data, GLenum mode) {
+    Shape s;
+    s.vertexCount = data.size() / 5; // 2 coordinates + 3 colors
+    s.mode = mode;
+    glGenVertexArrays(1, &s.VAO);
+    glGenBuffers(1, &s.VBO);
+    glBindVertexArray(s.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, s.VBO);
+    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), data.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    return s;
+}
+
+// Create a circle
+Shape makeCircle(float cx, float cy, float r, int segments) {
+    std::vector<float> verts;
+    verts.push_back(cx); verts.push_back(cy); verts.push_back(0.0f); verts.push_back(0.0f); verts.push_back(0.0f);
+    for (int i = 0; i <= segments; i++) {
+        float angle = (2.0f * M_PI * i) / segments;
+        float x = cx + r * cos(angle);
+        float y = cy + r * sin(angle);
+        verts.push_back(x); verts.push_back(y); verts.push_back(angle / (2.0f * M_PI)); verts.push_back(0.2f); verts.push_back(1.0f - angle / (2.0f * M_PI));
+    }
+    return makeShape(verts, GL_TRIANGLE_FAN);
+}
+
+// Create an ellipse
+Shape makeEllipse(float cx, float cy, float rx, float ry, int segments) {
+    std::vector<float> verts;
+    verts.push_back(cx); verts.push_back(cy); verts.push_back(0.0f); verts.push_back(0.0f); verts.push_back(0.0f);
+    for (int i = 0; i <= segments; i++) {
+        float angle = (2.0f * M_PI * i) / segments;
+        float x = cx + rx * cos(angle);
+        float y = cy + ry * sin(angle) * 0.6f;
+        verts.push_back(x); verts.push_back(y); verts.push_back((float)i / segments); verts.push_back(0.0f); verts.push_back(1.0f - (float)i / segments);
+    }
+    return makeShape(verts, GL_TRIANGLE_FAN);
+}
+
+// Create a square
+Shape makeSquare(float cx, float cy, float size, float gray) {
+    std::vector<float> verts = {
+        cx - size, cy + size, gray, gray, gray,
+        cx - size, cy - size, gray, gray, gray,
+        cx + size, cy + size, gray, gray, gray,
+        cx + size, cy - size, gray, gray, gray,
+    };
+    return makeShape(verts, GL_TRIANGLE_STRIP);
+}
+
+// Create a triangle
+Shape makeTriangle(float cx, float cy, float r) {
+    std::vector<float> verts;
+    for (int i = 0; i < 3; i++) {
+        float angle = i * 2.0f * M_PI / 3.0f;
+        float x = cx + r * cos(angle);
+        float y = cy + r * sin(angle);
+        verts.push_back(x); verts.push_back(y);
+        verts.push_back(i == 0 ? 1.0f : 0.0f);
+        verts.push_back(i == 1 ? 1.0f : 0.0f);
+        verts.push_back(i == 2 ? 1.0f : 0.0f);
+    }
+    return makeShape(verts, GL_TRIANGLES);
+}
+
+int main() {
+    // Initialize GLFW and create a window
+    if (!glfwInit()) {
+        std::cerr << "Error: GLFW failed to initialize!\n";
+        return -1;
+    }
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLFWwindow* window = glfwCreateWindow(500, 500, "Task2 Part1", NULL, NULL);
+    if (!window) {
+        std::cerr << "Error: Failed to create window!\n";
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Error: Failed to initialize GLAD!\n";
+        return -1;
+    }
+
+    // Compile shaders
+    unsigned int vShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vShader);
+
+    unsigned int fShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fShader);
+
+    unsigned int shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vShader);
+    glAttachShader(shaderProgram, fShader);
+    glLinkProgram(shaderProgram);
+
+    glDeleteShader(vShader);
+    glDeleteShader(fShader);
+
+    // Create shapes
+    Shape circle = makeCircle(-0.5f, 0.4f, 0.2f, 64);
+    Shape ellipse = makeEllipse(0.5f, 0.4f, 0.25f, 0.25f, 64);
+    std::vector<Shape> squares;
+    for (int i = 0; i < 5; i++) {
+        float size = 0.4f - i * 0.07f;
+        float gray = (float)i / 4;
+        squares.push_back(makeSquare(0.0f, -0.3f, size, gray));
+    }
+    Shape triangle = makeTriangle(0.5f, -0.4f, 0.2f);
+
+    // Main rendering loop
+    while (!glfwWindowShouldClose(window)) {
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(shaderProgram);
+
+        // Draw shapes
+        glBindVertexArray(circle.VAO);
+        glDrawArrays(circle.mode, 0, circle.vertexCount);
+
+        glBindVertexArray(ellipse.VAO);
+        glDrawArrays(ellipse.mode, 0, ellipse.vertexCount);
+
+        for (auto& s : squares) {
+            glBindVertexArray(s.VAO);
+            glDrawArrays(s.mode, 0, s.vertexCount);
+        }
+
+        glBindVertexArray(triangle.VAO);
+        glDrawArrays(triangle.mode, 0, triangle.vertexCount);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    glfwTerminate();
+    return 0;
+}
 

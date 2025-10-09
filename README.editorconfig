@@ -1,0 +1,30 @@
+# OpenGL and GLUT Animation Project
+
+Description:
+This project demonstrates a simple animation using OpenGL and GLUT. It features a main window with a rotating square and random circles, as well as a subwindow with an ellipse and a menu to change the background color.
+
+---
+
+## Features
+- Rotating square in the main window.
+- Adding circles with a mouse click.
+- "Breathing" animation for circles (size changes).
+- Subwindow with an ellipse and a menu to change the background color.
+
+---
+
+## Requirements
+- OpenGL and GLUT.
+- A C++ compiler supporting C++11 or later.
+
+---
+
+## Installation and Setup
+
+### 1. Install Dependencies
+#### On Windows:
+- Install **freeglut** using **vcpkg**:
+  ```powershell
+  .\vcpkg install freeglut\:x64-windows
+  .\vcpkg integrate install
+

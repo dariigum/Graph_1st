@@ -1,0 +1,11 @@
+CC = g++
+CFLAGS = -std=c++11 -I"C:\Users\user\source\repos\OPenGL\Libraries\include\GLFW" -I"C:\Users\user\source\repos\OPenGL\Libraries\include\glad"
+LDFLAGS = -L"C:\Users\user\source\repos\OPenGL\Libraries\lib" -lglfw3 -L"C:\Users\user\source\repos\OPenGL\Libraries\lib" -lglew32 -lopengl32 -lgdi32
+
+all: main
+
+main: main.cpp
+	$(CC) $(CFLAGS) -o main.exe main.cpp $(LDFLAGS)
+
+clean:
+	rm -f main.exe
